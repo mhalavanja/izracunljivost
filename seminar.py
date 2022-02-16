@@ -200,11 +200,11 @@ class Kompozicija(AST('lijeva desne')):
         return k
 
     def _asdict(self):
-        lijeva = self.lijeva.sadržaj if isinstance(
-            self.lijeva, Token) else self.lijeva
+        lijeva = self.lijeva.sadržaj if isinstance(self.lijeva, Token) else self.lijeva
         if isinstance(self.desne, type(Nenavedeno())):
             return {'': lijeva}
         return {'lijevi': lijeva, 'desni': self.desne}
+        # return {'': lijeva, '': self.desne}
 
     def name(self):
         return 'o'  # kompozicija
@@ -244,10 +244,12 @@ class Zero(AST('n')):
         return 1
 
     def name(self):
-        return 'Z'
+        # return 'Z'
+        return ''
 
     def _asdict(self):
-        return {'': Kompozicija(Projekcija(1, self.n), Nenavedeno())}
+        # return {'': Kompozicija(Projekcija(1, self.n), Nenavedeno())}
+        return {'': Kompozicija("Z", Projekcija(1, self.n))}
 
 
 class Projekcija(AST('k n')):
@@ -267,20 +269,20 @@ class Sljedbenik(AST('izraz n')):
         return 1
 
     def _asdict(self):
-        # izraz = self.izraz if isinstance(self.izraz, int) else int(self.izraz.sadržaj)
-        # return {'': Sljedbenik(self.izraz, self.n)}
-        # return {'': Sljedbenik(izraz, self.n)}
-        num = ret = None
+        num = None
         if isinstance(self.izraz, int):
             num = self.izraz
         elif isinstance(self.izraz, AST0):
-            return {'': Kompozicija(self.izraz, Nenavedeno())}
+            # return {'': Kompozicija(self.izraz, Nenavedeno())}
+            return {'': Kompozicija("Sc", self.izraz)}
         else:
             num = int(self.izraz.sadržaj)
-        return {'': Kompozicija(Zero(self.n) if num == 0 else Sljedbenik(num - 1, self.n), Nenavedeno())}
+        # return {'': Kompozicija(Zero(self.n) if num == 0 else Sljedbenik(num - 1, self.n), Nenavedeno())}
+        return {'': Kompozicija("Sc", Zero(self.n) if num == 0 else Sljedbenik(num - 1, self.n))}
 
     def name(self):
-        return 'Sc'
+        # return 'Sc'
+        return ''
 
 
 # p1 = P('''
@@ -291,10 +293,11 @@ class Sljedbenik(AST('izraz n')):
 # ''')
 
 p2 = P('''
+f(x,z) = Sc(Sc(x))
 add(x, 0) = x
 add(x, y + 1) = Sc(add(x, y))
 mul(x, 0) = 0
-mul(x, y + 1) = add(mul(x, y), y)
+mul(x, y + 1) = add(x, mul(x, y))
 fact(0) = 1
 fact(n + 1) = mul(fact(n), Sc(n))
 ''')
