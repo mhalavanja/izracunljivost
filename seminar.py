@@ -218,8 +218,12 @@ class PRekurzija(AST('baza korak')):
         return k + 1
 
     def _asdict(self):
-        # return {'baza': self.baza.sadržaj + '^' + str(self.bazaArgs), 'korak': self.korak.sadržaj + '^' + str(self.korakArgs)}
-        return {'baza': self.baza, 'korak': self.korak}
+        if len(self.baza.parametri) > 0 : return {'baza': self.baza, 'korak': self.korak}
+        baza = self.baza.izraz
+        if isinstance(baza, Konstanta):
+            baza = int(baza.num.sadržaj)
+            return {'baza': baza, 'korak': self.korak}
+        raise(SemantičkaGreška("Primitivna degenerirana rekurzija za bazu mora imati konstantu"))
 
     def name(self):
         return 'PR'
