@@ -7,11 +7,11 @@ class T(TipoviTokena):
 
     class Z(Token):
         literal = "Z" 
-        def mjesnost(self, funkcije): return 1
+        # def mjesnost(self, funkcije): return 1
 
     class SC(Token):
         literal = "Sc" 
-        def mjesnost(self, funkcije): return 1
+        # def mjesnost(self, funkcije): return 1
 
     class NUM(Token):
         pass
@@ -23,8 +23,7 @@ class T(TipoviTokena):
         literal = '1'
 
     class IME(Token):
-        def mjesnost(self, funkcije): return funkcije[self][0]
-
+        # def mjesnost(self, funkcije): return funkcije[self][0]
         def _asdict(self):
             return {'': self.sadržaj}
 
@@ -54,14 +53,14 @@ def lexer(lex):
         else:
             yield lex.literal(T)
 
-# BKG
+# (B)KG
 # program -> program funkcija | funkcija
 # funkcija -> primRek | IME OTV argumenti ZATV EQ izraz
 # primRek -> baza korak
 # baza  -> IME OTV argumenti ZAREZ NULA ZATV EQ izraz
 # korak -> IME OTV argumenti PLUS JEDAN ZATV EQ izraz
 # argumenti -> argumenti ZAREZ IME | IME
-# izraz -> Z OTV izraz ZATV | SC OTV izraz ZATV | NUM | IME | IME OTV izraz (ZAREZ izraz)* ZATV | # OTV izraz ZATV 
+# izraz -> Z OTV izraz ZATV | SC OTV izraz ZATV | NUM | IME | IME OTV izraz (ZAREZ izraz)* ZATV
 
 
 class P(Parser):
@@ -70,6 +69,8 @@ class P(Parser):
 
     def program(self):
         self.funkcije = Memorija()
+        self.bazaPR = None
+        self.PR = False
         while not self > KRAJ:
             self.lastImeF = self.imeF if self.imeF else None
             self.lastArgumenti = self.argumentiLista if self.argumentiLista != None else None
@@ -79,14 +80,18 @@ class P(Parser):
             self >> T.ZATV
             self >> T.EQ
             self.trenutnaFunkcija = self.izraz()
-            if self.lastImeF == self.imeF and len(self.lastArgumenti) + 2 == len(self.argumentiLista):
-                baza = self.funkcije[self.lastImeF, len(self.lastArgumenti)]
-                korak = Funkcija(self.imeF, self.argumentiLista, self.trenutnaFunkcija)
-                prekurzija = PRekurzija(baza, korak)
-                del self.funkcije[self.lastImeF, len(self.lastArgumenti)]
+            if self.PR and self.lastImeF == self.imeF and len(self.lastArgumenti) + 2 == len(self.argumentiLista):
+                korak = Funkcija(self.imeF, len(self.argumentiLista), self.trenutnaFunkcija)
+                prekurzija = PRekurzija(self.bazaPR, korak)
+                if (self.imeF, len(self.argumentiLista) - 1) in self.funkcije: raise SemantičkaGreška("Redeklaracija funkcije " + self.imeF.sadržaj + "^" + str(len(self.argumentiLista) - 1))
                 self.funkcije[self.imeF, len(self.argumentiLista) - 1] = prekurzija
+                self.PR = False
+                self.bazaPR = None
             else:
-                self.funkcije[self.imeF, len(self.argumentiLista)] = Funkcija(self.imeF, self.argumentiLista, self.trenutnaFunkcija)
+                if self.PR: self.bazaPR = Funkcija(self.imeF, len(self.argumentiLista), self.trenutnaFunkcija)
+                else: 
+                    if (self.imeF, len(self.argumentiLista)) in self.funkcije: raise SemantičkaGreška("Redeklaracija funkcije " + self.imeF.sadržaj + "^" + str(len(self.argumentiLista)))
+                    self.funkcije[self.imeF, len(self.argumentiLista)] = Funkcija(self.imeF, len(self.argumentiLista), self.trenutnaFunkcija)
         if not self.funkcije:
             raise SemantičkaGreška('Prazan program')
         return self.funkcije
@@ -164,40 +169,50 @@ class P(Parser):
     start = program
     lexer = lexer
 
-# AST
-# funkcija: FIME|NULFUNKCIJA|Sc|KI:Token
-#           Kompozicija: lijeva:funkcija desne:[funkcija]
-#           PRekurzija: baza:funkcija korak:funkcija
+### AST
+# Funkcija: ime:IME mjesnost:NUM izraz:izraz
+# izraz: Kompozicija: lijeva:poziv desne:[poziv]
+#        PRekurzija: baza:(poziv | broj:NUM) korak:poziv
+#        poziv
+# poziv: ime:IME izraz
+#        Sljedbenik: izraz:izraz n:NUM
+#        Zero: n:NUM
+#        Projekcija: k:NUM n:NUM
+# 
+#
+# Konstanta: num:NUM n:NUM
+# Konstanta se ne prikazuje u zavrsnom stablu jer nije inicijalna funkcija, 
+# ali se koristi kao pomocni AST
 
 
-kriva_mjesnost = SemantičkaGreška('Mjesnosti ne odgovaraju')
+# kriva_mjesnost = SemantičkaGreška('Mjesnosti ne odgovaraju')
 
 
-class Funkcija(AST('ime parametri izraz')):
+class Funkcija(AST('ime mjesnost izraz')):
     def name(self):
         # return str(self.ime.sadržaj) + '(' + self.strParametri() + ') ='
         return ''
 
-    def strParametri(self):
-        ret = ''
-        for p in self.parametri:
-            ret += str(p.sadržaj) + ', '
-        return ret[:-2]
+    # def strParametri(self):
+    #     ret = ''
+    #     for p in self.parametri:
+    #         ret += str(p.sadržaj) + ', '
+    #     return ret[:-2]
 
     def _asdict(self):
         return {'': self.izraz}
 
 
 class Kompozicija(AST('lijeva desne')):
-    def mjesnost(self, funkcije):
-        l = self.lijeva.mjesnost(funkcije)
-        if len(self.desne) != l:
-            raise kriva_mjesnost
-        G1, *ostale = self.desne
-        k = G1.mjesnost(funkcije)
-        if any(G.mjesnost(funkcije) != k for G in ostale):
-            raise kriva_mjesnost
-        return k
+    # def mjesnost(self, funkcije):
+    #     l = self.lijeva.mjesnost(funkcije)
+    #     if len(self.desne) != l:
+    #         raise kriva_mjesnost
+    #     G1, *ostale = self.desne
+    #     k = G1.mjesnost(funkcije)
+    #     if any(G.mjesnost(funkcije) != k for G in ostale):
+    #         raise kriva_mjesnost
+    #     return k
 
     def _asdict(self):
         lijeva = self.lijeva.sadržaj if isinstance(self.lijeva, Token) else self.lijeva
@@ -211,14 +226,14 @@ class Kompozicija(AST('lijeva desne')):
 
 
 class PRekurzija(AST('baza korak')):
-    def mjesnost(self, funkcije):
-        k = self.baza.mjesnost(funkcije)
-        if self.korak.mjesnost(funkcije) != k + 2:
-            raise kriva_mjesnost
-        return k + 1
+    # def mjesnost(self, funkcije):
+        # k = self.baza.mjesnost(funkcije)
+        # if self.korak.mjesnost(funkcije) != k + 2:
+        #     raise kriva_mjesnost
+        # return k + 1
 
     def _asdict(self):
-        if len(self.baza.parametri) > 0 : return {'baza': self.baza, 'korak': self.korak}
+        if self.baza.mjesnost > 0 : return {'baza': self.baza, 'korak': self.korak}
         baza = self.baza.izraz
         if isinstance(baza, Konstanta):
             baza = int(baza.num.sadržaj)
@@ -230,8 +245,8 @@ class PRekurzija(AST('baza korak')):
 
 
 class Konstanta(AST('num n')):
-    def mjesnost(self, funkcije):
-        return self.n
+    # def mjesnost(self, funkcije):
+    #     return self.n
 
     def _asdict(self):
         num = self.numn if isinstance(self.num, int) else int(self.num.sadržaj)
@@ -244,8 +259,8 @@ class Konstanta(AST('num n')):
 
 
 class Zero(AST('n')):
-    def mjesnost(self, funkcije):
-        return 1
+    # def mjesnost(self, funkcije):
+    #     return 1
 
     def name(self):
         # return 'Z'
@@ -257,8 +272,8 @@ class Zero(AST('n')):
 
 
 class Projekcija(AST('k n')):
-    def mjesnost(self, funkcije):
-        return self.n
+    # def mjesnost(self, funkcije):
+    #     return self.n
 
     def name(self):
         n = self.n if self.n > 0 else 1
@@ -269,8 +284,8 @@ class Projekcija(AST('k n')):
 
 
 class Sljedbenik(AST('izraz n')):
-    def mjesnost(self, funkcije):
-        return 1
+    # def mjesnost(self, funkcije):
+    #     return 1
 
     def _asdict(self):
         num = None
@@ -289,20 +304,16 @@ class Sljedbenik(AST('izraz n')):
         return ''
 
 
-# p1 = P('''
-# g(x)=x
-# h(x,y,z)=
-# f(x,0)=g(x)
-# f(x,y+1)=
-# ''')
-
 p2 = P('''
-f(x,z) = Sc(Sc(x))
+f(x)=x
+f(x,z)=x
 add(x, 0) = x
 add(x, y + 1) = Sc(add(x, y))
 mul(x, 0) = 0
 mul(x, y + 1) = add(x, mul(x, y))
 fact(0) = 1
 fact(n + 1) = mul(fact(n), Sc(n))
+f(x, y, 0) = add(x,y)
+f(x, y, z+1) = mul(f(x, y, z), y)
 ''')
 prikaz(p2)
