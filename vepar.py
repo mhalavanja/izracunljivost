@@ -361,20 +361,18 @@ def prikaz(objekt, dubina: int = math.inf, uvlaka: str = '', ime: str = None):
     intro = uvlaka
     if ime is not None: 
         intro += ime
-        if ime != '': intro += ' = '
+        if ime: intro += ' = '
     if isinstance(objekt, (Token, elementarni, Nenavedeno, enum.Enum)) \
             or not dubina:
         return print(intro, repr(objekt), sep='')
     if isinstance(objekt, ListaAST):
-        # print(intro, end='[...]:\n' if objekt else '[]\n')
-        print(intro)
+        print(intro, end='[...]:\n' if objekt else '[]\n')
         for vrijednost in objekt:
             prikaz(vrijednost, dubina-1, uvlaka+'. ')
     elif isinstance(objekt, AST0):
-        shouldPrint = True
         name = objekt.name()
         toPrint = intro + name
-        if name not in ['', 'o', 'Sc', 'Z'] and name[:2] != 'I^':
+        if name not in ["", "o", "Sc", "Z"] and name[:2] != 'I^':
             toPrint += ':'
         if name or ime: 
             print(toPrint)
