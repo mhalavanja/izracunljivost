@@ -1,3 +1,4 @@
+from cgi import test
 from vepar import *
 
 
@@ -87,9 +88,9 @@ class P(Parser):
                 else: 
                     if (self.imeF, self.mjesnost) in self.funkcije: raise SemantičkaGreška("Redeklaracija funkcije " + self.imeF.sadržaj + "^" + str(self.mjesnost))
                     self.funkcije[self.imeF, self.mjesnost] = Funkcija(self.imeF, self.mjesnost, self.trenutnaFunkcija)
+        if self.bazaPR: raise SemantičkaGreška("Zadnja funkcija je baza primitivne rekurzije koja nema korak")
         if not self.funkcije:
             raise SemantičkaGreška('Prazan program')
-        if self.bazaPR: raise SemantičkaGreška("Zadnja funkcija je baza primitivne rekurzije koja nema korak")
         return self.funkcije
 
     def argumentiIMjesnost(self):
@@ -143,8 +144,7 @@ class P(Parser):
                     return Projekcija(self.mjesnost, self.mjesnost)
                 elif (ime, len(izrazi)) not in self.funkcije:
                     raise SemantičkaGreška('Funkcija ' + ime.sadržaj + '^' + str(len(izrazi)) + ' nije definirana')
-                desna =  izrazi
-                return Kompozicija(lijeva, desna)
+                return Kompozicija(lijeva, izrazi)
             else:
                 if ime not in self.argumentiLista:
                     raise SemantičkaGreška("Varijabla nije argument funkcije")
@@ -157,7 +157,7 @@ class P(Parser):
 
 ### AST
 # Funkcija: ime:IME mjesnost:NUM izraz:izraz
-# izraz: Kompozicija: lijeva:poziv desna:[poziv]
+# izraz: Kompozicija: lijeva:poziv desne:[poziv]
 #        PRekurzija: baza:(poziv | broj:NUM) korak:poziv
 #        poziv
 # poziv: ime:IME izraz
@@ -179,12 +179,12 @@ class Funkcija(AST('ime mjesnost izraz')):
         return {'': self.izraz}
 
 
-class Kompozicija(AST('lijeva desna')):
+class Kompozicija(AST('lijeva desne')):
     def _asdict(self):
         lijeva = self.lijeva.sadržaj if isinstance(self.lijeva, Token) else self.lijeva
-        if isinstance(self.desna, type(Nenavedeno())):
+        if isinstance(self.desne, type(Nenavedeno())):
             return {'': lijeva}
-        return {'lijevi': lijeva, 'desni': self.desna}
+        return {'lijevi': lijeva, 'desni': self.desne}
 
     def name(self):
         return 'o'
@@ -194,8 +194,8 @@ class PRekurzija(AST('baza korak')):
     def _asdict(self):
         if self.baza.mjesnost > 0 : return {'baza': self.baza, 'korak': self.korak}
         baza = self.baza.izraz
-        if isinstance(baza.desna, Konstanta):
-            baza = int(baza.desna.num + 1)
+        if isinstance(baza.desne, Konstanta):
+            baza = int(baza.desne.num + 1)
             return {'baza': baza, 'korak': self.korak}
         raise(SemantičkaGreška("Primitivna degenerirana rekurzija za bazu mora imati konstantu"))
 
@@ -230,8 +230,10 @@ class Sljedbenik(AST('')):
     def name(self):
         return 'Sc'
 
+# add(x,x) je greska
+# popraviti prikaz ispisa
 
-p2 = P('''
+p0 = P('''
 add(x, 0) = x
 add(x, y + 1) = Sc(add(x, y))
 mul(x, 0) = 0
@@ -247,8 +249,45 @@ z(z) = z
 x(x) = z(x)
 ''')
 
-prikaz(p2)
+prikaz(p0)
 
+import unittest
+
+
+class TestCases(unittest.TestCase):
+    def test1(self):
+        with self.assertRaises(SemantičkaGreška):
+             P("h(x, 0) = 1")
+    def test2(self):
+        with self.assertRaises(SemantičkaGreška):
+            P("g(x + 1) = x")
+    def test3(self):
+        with self.assertRaises(SemantičkaGreška):
+             P("g(y, y) = y")
+    def test4(self):
+        with self.assertRaises(SemantičkaGreška):
+            P("g(x) = z")
+    def test5(self):
+        with self.assertRaises(SemantičkaGreška):
+            P('''
+                z(z, x) = z
+                x(x) = z(x)
+            ''')
+    def test6(self):
+        with self.assertRaises(SemantičkaGreška):
+            P('''
+                a(x, 0) = x
+                a(x, n+1) = a(x, b)
+            ''')
+    def test7(self):
+        with self.assertRaises(SemantičkaGreška):
+            P('''
+                a(x) = x
+                a(y) = y
+            ''')
+
+unittest.main()
+#########################
 # Testirao da ne radi
 #
 # h(x, 0) = 1  -> bez koraka
