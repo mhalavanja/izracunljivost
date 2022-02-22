@@ -372,8 +372,6 @@ def prikaz(objekt, dubina: int = math.inf, uvlaka: str = '', ime: str = None):
     elif isinstance(objekt, AST0):
         name = objekt.name()
         toPrint = intro + name
-        if name not in ["", "o", "Sc", "Z"] and name[:2] != 'I^':
-            toPrint += ':'
         if name or ime: 
             print(toPrint)
         for ime, vrijednost in objekt._asdict().items():
