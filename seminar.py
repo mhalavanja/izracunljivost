@@ -53,7 +53,7 @@ def lexer(lex):
 # baza  -> IME OTV argumenti ZAREZ NULA ZATV EQ izraz
 # korak -> IME OTV argumenti PLUS JEDAN ZATV EQ izraz
 # argumenti -> argumenti ZAREZ IME | IME
-# izraz -> Z OTV izraz ZATV | SC OTV izraz ZATV | NUM | IME | IME OTV izraz (ZAREZ izraz)* ZATV
+# izraz -> SC OTV izraz ZATV | NUM | IME | IME OTV izraz (ZAREZ izraz)* ZATV
 
 
 class P(Parser):
@@ -105,6 +105,7 @@ class P(Parser):
 
     def argumentiIMjesnost(self):
         args, mjesnost = [],  0
+        arg = None
         if self >= T.NULA:
             self.PR = True
             return [], 0
@@ -112,8 +113,9 @@ class P(Parser):
             args.append(arg)
             mjesnost += 1
         while(self >= T.ZAREZ):
-            if var := self >= T.IME:
-                args.append(var)
+            arg = None
+            if arg := self >= T.IME:
+                args.append(arg)
                 mjesnost += 1
             elif self >= T.NULA:
                 self.PR = True
@@ -121,6 +123,7 @@ class P(Parser):
                     raise SintaksnaGreška("Nakon 0 u primitivnoj rekurziji po zadnjem argumentu mora doći ')'")
             else: raise SintaksnaGreška("Zarez viška u deklaraciji argumenata funkcije " + self.imeF)
         if self >= T.PLUS:
+            if not arg: raise SintaksnaGreška("+1 u koraku primitivne rekurzije mora doći nakon neke varijable") 
             self >> T.JEDAN
             if self > T.ZAREZ:
                 raise SintaksnaGreška("Primitivna rekurzija je dopuštena samo po zadnjem argumentu")
@@ -234,7 +237,7 @@ f(x,z)=mul(add(x,1), add(z,2))
 z(z) = fact(z)
 x(x) = z(x)
 a(x, 0) = 0
-a(x, n+1) = 0
+a(x, y+1) = 0
 ''')
 
 
